@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { createClient } from "@/utils/supabase/client";
+import { createProfile, uploadProfilePhoto } from "@/lib/api";
 import {
   User,
   GraduationCap,
@@ -98,7 +101,20 @@ export default function CreateProfilePage() {
 
   // Simulated photo uploads state
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUserId(data.user.id);
+      } else {
+        router.push("/login");
+      }
+    });
+  }, [router]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -133,15 +149,18 @@ export default function CreateProfilePage() {
     setDragActive(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      // Simulate adding photo URL
+      // Add photo URL and files
       const newPhotos = [...photos];
+      const newPhotoFiles = [...photoFiles];
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         if (newPhotos.length >= 4) break;
         const file = e.dataTransfer.files[i];
         const fakeUrl = URL.createObjectURL(file);
         newPhotos.push(fakeUrl);
+        newPhotoFiles.push(file);
       }
       setPhotos(newPhotos);
+      setPhotoFiles(newPhotoFiles);
     }
   };
 
@@ -152,18 +171,22 @@ export default function CreateProfilePage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const newPhotos = [...photos];
+      const newPhotoFiles = [...photoFiles];
       for (let i = 0; i < e.target.files.length; i++) {
         if (newPhotos.length >= 4) break;
         const file = e.target.files[i];
         const fakeUrl = URL.createObjectURL(file);
         newPhotos.push(fakeUrl);
+        newPhotoFiles.push(file);
       }
       setPhotos(newPhotos);
+      setPhotoFiles(newPhotoFiles);
     }
   };
 
   const removePhoto = (idx: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== idx));
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleNext = () => {
@@ -180,14 +203,26 @@ export default function CreateProfilePage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
+    
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      await createProfile(userId, formData);
+      
+      // Upload photos
+      for (const file of photoFiles) {
+        await uploadProfilePhoto(userId, file);
+      }
+      
       setIsSubmitting(false);
       setIsSuccess(true);
-    }, 2000);
+    } catch (error) {
+      console.error("Error creating profile:", error);
+      setIsSubmitting(false);
+    }
   };
 
   const activeStep = steps[currentStepIdx];
@@ -941,10 +976,11 @@ export default function CreateProfilePage() {
                                 key={idx}
                                 className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group bg-gray-100"
                               >
-                                <img
+                                <Image
                                   src={photo}
                                   alt={`Upload preview ${idx + 1}`}
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  className="object-cover"
                                 />
                                 <button
                                   type="button"

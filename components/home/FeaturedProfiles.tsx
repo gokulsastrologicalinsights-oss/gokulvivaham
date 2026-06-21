@@ -1,15 +1,27 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import ProfileCard from "@/components/ui/ProfileCard";
-import { featuredProfiles } from "@/lib/data";
+import { featuredProfiles, Profile } from "@/lib/data";
+import { getProfiles } from "@/lib/api";
 
 const filters = ["All", "Bride", "Groom", "Doctor", "Engineer", "Premium"];
 
 export default function FeaturedProfiles() {
   const [activeFilter, setActiveFilter] = useState("All");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [profiles, setProfiles] = useState<Profile[]>(featuredProfiles as any[]);
+
+  useEffect(() => {
+    getProfiles(1, 10).then(({ profiles: data }) => {
+      if (data && data.length > 0) {
+        const fp = data.filter((p) => p.gender === "Female").slice(0, 10);
+        setProfiles(fp as any);
+      }
+    });
+  }, []);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollRef.current) {
@@ -80,10 +92,19 @@ export default function FeaturedProfiles() {
               [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
               md:grid md:grid-cols-2 md:overflow-visible lg:grid-cols-3"
           >
-            {featuredProfiles.map((profile) => (
+            {profiles.map((profile) => (
               <div key={profile.id} className="flex-shrink-0 w-72 md:w-auto snap-start">
                 <ProfileCard
-                  {...profile}
+                  name={profile.name}
+                  age={profile.age}
+                  location={profile.location}
+                  education={profile.degree}
+                  profession={profile.occupation}
+                  rasi={profile.rasi}
+                  nakshatra={profile.nakshatra}
+                  image={profile.images?.[0] || ""}
+                  verified={profile.verified}
+                  premium={profile.premium}
                   onViewProfile={() => console.log("View profile:", profile.id)}
                   onSendInterest={() => console.log("Send interest:", profile.id)}
                 />

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 import {
   Heart,
   Eye,
@@ -12,16 +14,46 @@ import {
 } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const supabase = createClient();
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!identifier || !password) {
+      setError("Please enter both email/phone and password.");
+      return;
+    }
+    
     setIsLoading(true);
-    // Simulate loading
-    setTimeout(() => setIsLoading(false), 1500);
+    setError(null);
+    
+    try {
+      if (loginMethod === "email") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: identifier,
+          password: password,
+        });
+        
+        if (signInError) throw signInError;
+        
+        router.push("/profile");
+        router.refresh();
+      } else {
+        // Phone login not fully implemented in Supabase without specific provider setup
+        throw new Error("Phone login is currently not available.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to sign in. Please check your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -187,6 +219,8 @@ export default function LoginPage() {
                   <input
                     id="login-identifier"
                     type={loginMethod === "email" ? "email" : "tel"}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     placeholder={
                       loginMethod === "email"
                         ? "your@email.com"
@@ -211,6 +245,8 @@ export default function LoginPage() {
                   <input
                     id="login-password"
                     type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-maroon-400 focus:ring-2 focus:ring-maroon-100 transition-all duration-200 text-sm"
                     autoComplete="current-password"
@@ -257,6 +293,11 @@ export default function LoginPage() {
               </div>
 
               {/* Submit button */}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
               <button
                 id="login-submit-btn"
                 type="submit"

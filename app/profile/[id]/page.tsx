@@ -1,11 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProfileCard from "@/components/ui/ProfileCard";
-import { mockProfiles, Profile } from "@/lib/data";
+import { Profile } from "@/lib/data";
+import { getProfileById, checkInterestStatus, sendInterest } from "@/lib/api";
+import { recordProfileView } from "@/app/actions/notifications";
+import { calculateCompatibility, CompatibilityResult } from "@/lib/compatibility";
+import { createClient } from "@/utils/supabase/client";
 import {
   ShieldCheck,
   Star,
@@ -34,16 +40,71 @@ interface ProfileDetailsProps {
 export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
   const router = useRouter();
   const { id } = use(params);
-  const profileId = Number(id);
+  const profileId = id; // Can be string in DB
 
-  // Find the profile details
-  const profile = mockProfiles.find((p) => p.id === profileId);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // States
+  useEffect(() => {
+    getProfileById(profileId).then(data => {
+      setProfile(data as Profile);
+      setIsLoading(false);
+    });
+  }, [profileId]);
+
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [interestSent, setInterestSent] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [isShortlisted, setIsShortlisted] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setCurrentUser(data.user);
+        checkInterestStatus(data.user.id, profileId as string).then((res) => {
+          if (res && res.sender_id === data.user.id) {
+            setInterestSent(true);
+          }
+        });
+        getProfileById(data.user.id).then((currProfile) => {
+          if (currProfile) setCurrentProfile(currProfile as Profile);
+        });
+        
+        if (data.user.id !== profileId) {
+          recordProfileView(profileId as string).catch(console.error);
+        }
+      }
+    });
+  }, [supabase, profileId]);
+
+  const handleSendInterest = async () => {
+    if (!currentUser || interestSent || isSending) return;
+    setIsSending(true);
+    const res = await sendInterest(currentUser.id, profileId as string);
+    if (res) {
+      setInterestSent(true);
+    }
+    setIsSending(false);
+  };
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <main className="flex flex-col min-h-screen bg-ivory-100">
+        <Navbar />
+        <div className="h-20" />
+        <div className="flex-1 flex items-center justify-center">
+          <Compass className="w-10 h-10 text-gold-500 animate-spin" />
+        </div>
+        <Footer />
+      </main>
+    );
+  }
 
   // Handle case where profile is not found
   if (!profile) {
@@ -70,9 +131,9 @@ export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
   }
 
   // Get similar profiles (same gender, excluding current profile)
-  const similarProfiles = mockProfiles
-    .filter((p) => p.gender === profile.gender && p.id !== profile.id)
-    .slice(0, 3);
+  // For now we don't have an API for similar profiles, so we just use an empty array
+  // Alternatively we could fetch all profiles and filter. 
+  const similarProfiles: Profile[] = [];
 
   // Helper to place planets into the 4x4 Grid cells
   // Grid cells indexed 0 to 15 (4x4 matrix)
@@ -124,6 +185,10 @@ export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
     return centerCells.includes(cellIdx);
   };
 
+  const compatibility = currentProfile && profile && currentProfile.id !== profile.id
+    ? calculateCompatibility(currentProfile, profile)
+    : null;
+
   return (
     <main className="flex flex-col min-h-screen bg-ivory-100">
       <Navbar />
@@ -153,10 +218,11 @@ export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
                 <div className="absolute inset-2 border border-gold-400/10 rounded-2xl pointer-events-none" />
 
                 <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-50 border-2 border-gold-300 p-0.5 shadow-md">
-                  <img
+                  <Image
                     src={profile.images[activeImageIdx]}
                     alt={`${profile.name} photo`}
-                    className="w-full h-full object-cover rounded-2xl transition-all duration-500"
+                    fill
+                    className="object-cover rounded-2xl transition-all duration-500"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
                         `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=8b1a1a&color=faf6f0&size=400`;
@@ -187,7 +253,7 @@ export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
                           activeImageIdx === idx ? "border-gold-500 scale-105 shadow-md" : "border-transparent opacity-65 hover:opacity-100"
                         }`}
                       >
-                        <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                        <Image src={img} alt="thumbnail" fill className="object-cover" />
                       </button>
                     ))}
                   </div>
@@ -200,15 +266,16 @@ export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
                 <div className="absolute inset-1.5 border border-gold-400/5 rounded-2xl pointer-events-none" />
 
                 <button
-                  onClick={() => setInterestSent(true)}
-                  className={`w-full py-4 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                  onClick={handleSendInterest}
+                  disabled={isSending || interestSent}
+                  className={`w-full py-4 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-80 disabled:cursor-not-allowed ${
                     interestSent
                       ? "bg-green-600 text-white border border-green-700 shadow-green-600/10"
                       : "bg-gradient-to-r from-maroon-950 via-maroon-800 to-maroon-950 hover:from-maroon-900 hover:to-maroon-750 text-gold-300 border border-gold-400/35"
                   }`}
                 >
                   <Heart className={`w-5 h-5 ${interestSent ? "fill-current" : ""}`} />
-                  {interestSent ? "Interest Sent Successfully" : "Send Marriage Interest"}
+                  {isSending ? "Sending..." : interestSent ? "Interest Sent Successfully" : "Send Marriage Interest"}
                 </button>
 
                 <div className="grid grid-cols-2 gap-3.5 relative z-10">
@@ -249,6 +316,64 @@ export default function ProfileDetailsPage({ params }: ProfileDetailsProps) {
             {/* COLUMN 2: DETAILED MATRIMONIAL PROFILES */}
             <div className="lg:col-span-2 space-y-8">
               
+              {/* Compatibility Match Card */}
+              {compatibility && (
+                <div className="bg-gradient-to-br from-white to-ivory-50 rounded-3xl border border-gold-300/30 p-6 md:p-8 shadow-xl relative overflow-hidden">
+                  <div className="absolute inset-1.5 border border-gold-400/5 rounded-2xl pointer-events-none" />
+                  <div className="absolute -right-10 -top-10 text-gold-200/40 opacity-20 transform rotate-12 pointer-events-none">
+                    <Star className="w-48 h-48" fill="currentColor" />
+                  </div>
+                  
+                  <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+                    <div className="flex flex-col items-center">
+                      <div className="relative w-32 h-32 flex items-center justify-center">
+                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                          <path
+                            className="text-gray-200"
+                            strokeWidth="3"
+                            stroke="currentColor"
+                            fill="none"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          />
+                          <path
+                            className={`${compatibility.score >= 80 ? 'text-green-500' : compatibility.score >= 50 ? 'text-gold-500' : 'text-maroon-500'}`}
+                            strokeWidth="3"
+                            strokeDasharray={`${compatibility.score}, 100`}
+                            strokeLinecap="round"
+                            stroke="currentColor"
+                            fill="none"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          />
+                        </svg>
+                        <div className="absolute flex flex-col items-center justify-center text-maroon-950">
+                          <span className="text-3xl font-black">{compatibility.score}%</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gold-600">Match</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 space-y-3">
+                      <h3 className="text-xl font-bold text-maroon-900 font-serif flex items-center gap-2">
+                        <Award className="w-6 h-6 text-gold-500" />
+                        Compatibility Insights
+                      </h3>
+                      <p className="text-sm text-gray-600 font-medium pb-2">
+                        Based on your profile details and expectations compared with {profile.name}.
+                      </p>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {compatibility.reasons.map((reason, idx) => (
+                          <div key={idx} className="flex items-start gap-2 bg-white/60 p-2 rounded-xl border border-gold-300/10">
+                            <ShieldCheck className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                            <span className="text-xs font-semibold text-gray-700">{reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Profile Main Header Card */}
               <div className="bg-white rounded-3xl border border-gold-300/20 p-6 md:p-8 shadow-lg relative">
                 

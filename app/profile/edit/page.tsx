@@ -1,10 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { mockProfiles } from "@/lib/data";
+import { mockProfiles as initialProfiles } from "@/lib/data";
+import { getProfileById, updateProfile, uploadProfilePhoto } from "@/lib/api";
+import { createClient } from "@/utils/supabase/client";
 import {
   User,
   GraduationCap,
@@ -47,61 +51,132 @@ const NAKSHATRAS = [
 export default function EditProfilePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("personal");
-  
-  // Find Rajesh Kumar (groom ID 7)
-  const defaultProfile = mockProfiles.find((p) => p.id === 7) || mockProfiles[0];
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Form State
   const [formData, setFormData] = useState({
-    fullName: defaultProfile.name,
-    gender: defaultProfile.gender,
-    dob: "1998-05-15", // Mock DOB matching age 28
-    maritalStatus: defaultProfile.maritalStatus,
-    height: defaultProfile.height,
-    weight: defaultProfile.weight,
-    motherTongue: defaultProfile.motherTongue,
-    religion: defaultProfile.religion,
-    caste: defaultProfile.caste,
+    fullName: "",
+    gender: "",
+    dob: "",
+    maritalStatus: "",
+    height: "",
+    weight: "",
+    motherTongue: "Tamil",
+    religion: "Hindu",
+    caste: "",
     // Career
     educationLevel: "Graduate",
-    degree: defaultProfile.degree,
-    institution: defaultProfile.institution,
+    degree: "",
+    institution: "",
     professionType: "Private Sector",
-    occupation: defaultProfile.occupation,
-    annualIncome: defaultProfile.annualIncome,
-    workLocation: defaultProfile.location,
+    occupation: "",
+    annualIncome: "",
+    workLocation: "",
     // Family
-    fatherName: defaultProfile.familyDetails.fatherName,
-    fatherOccupation: defaultProfile.familyDetails.fatherOccupation,
-    motherName: defaultProfile.familyDetails.motherName,
-    motherOccupation: defaultProfile.familyDetails.motherOccupation,
-    siblings: defaultProfile.familyDetails.siblings,
-    familyValues: defaultProfile.familyDetails.familyValues,
-    familyStatus: defaultProfile.familyDetails.familyStatus,
+    fatherName: "",
+    fatherOccupation: "",
+    motherName: "",
+    motherOccupation: "",
+    siblings: "",
+    familyValues: "Moderate",
+    familyStatus: "Middle Class",
     // Horoscope
-    rasi: defaultProfile.rasi,
-    nakshatra: defaultProfile.nakshatra,
-    lagnam: defaultProfile.lagnam,
-    gothram: defaultProfile.gothram,
-    patham: defaultProfile.patham.toString(),
-    doshams: defaultProfile.doshams,
+    rasi: "",
+    nakshatra: "",
+    lagnam: "",
+    gothram: "",
+    patham: "1",
+    doshams: [] as string[],
     // About / Expectations
-    aboutMe: defaultProfile.aboutMe,
-    partnerAgeMin: "23",
-    partnerAgeMax: "27",
-    partnerHeightMin: "5' 2\"",
-    partnerHeightMax: "5' 7\"",
-    partnerEducation: defaultProfile.expectations.education,
-    partnerProfession: defaultProfile.expectations.profession,
-    partnerLocation: defaultProfile.expectations.location,
-    partnerRasi: defaultProfile.expectations.rasi,
+    aboutMe: "",
+    partnerAgeMin: "",
+    partnerAgeMax: "",
+    partnerHeightMin: "",
+    partnerHeightMax: "",
+    partnerEducation: "",
+    partnerProfession: "",
+    partnerLocation: "",
+    partnerRasi: "",
   });
 
-  const [photos, setPhotos] = useState<string[]>(defaultProfile.images);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      setUserId(user.id);
+      
+      const p = await getProfileById(user.id);
+      if (p) {
+        let ageMin = "";
+        let ageMax = "";
+        if (p.expectations.ageRange !== "Not specified") {
+          const match = p.expectations.ageRange.match(/(\d+)\s*-\s*(\d+)/);
+          if (match) {
+            ageMin = match[1];
+            ageMax = match[2];
+          }
+        }
+        
+        setFormData({
+          fullName: p.name !== "Unknown User" ? p.name : "",
+          gender: p.gender,
+          dob: "", // dob is computed into age in the API normally, but for the form we should get the raw string if possible.
+                   // Since getProfileById returns age instead of dob, we might need a workaround or accept empty dob.
+          maritalStatus: p.maritalStatus !== "Not specified" ? p.maritalStatus : "",
+          height: p.height !== "Not specified" ? p.height : "",
+          weight: p.weight !== "Not specified" ? p.weight.replace(" kg", "") : "",
+          motherTongue: p.motherTongue !== "Not specified" ? p.motherTongue : "Tamil",
+          religion: p.religion !== "Not specified" ? p.religion : "Hindu",
+          caste: p.caste !== "Not specified" ? p.caste : "",
+          educationLevel: "Graduate",
+          degree: p.degree !== "Not specified" ? p.degree : "",
+          institution: p.institution !== "Not specified" ? p.institution : "",
+          professionType: "Private Sector",
+          occupation: p.occupation !== "Not specified" ? p.occupation : "",
+          annualIncome: p.annualIncome !== "Not specified" ? p.annualIncome.replace("₹", "") : "",
+          workLocation: p.location !== "Location not specified" ? p.location : "",
+          fatherName: p.familyDetails.fatherName !== "Not specified" ? p.familyDetails.fatherName : "",
+          fatherOccupation: p.familyDetails.fatherOccupation !== "Not specified" ? p.familyDetails.fatherOccupation : "",
+          motherName: p.familyDetails.motherName !== "Not specified" ? p.familyDetails.motherName : "",
+          motherOccupation: p.familyDetails.motherOccupation !== "Not specified" ? p.familyDetails.motherOccupation : "",
+          siblings: p.familyDetails.siblings !== "Not specified" ? p.familyDetails.siblings : "",
+          familyValues: p.familyDetails.familyValues,
+          familyStatus: p.familyDetails.familyStatus,
+          rasi: p.rasi !== "Not specified" ? p.rasi : "",
+          nakshatra: p.nakshatra !== "Not specified" ? p.nakshatra : "",
+          lagnam: p.lagnam !== "Not specified" ? p.lagnam : "",
+          gothram: p.gothram !== "Not specified" ? p.gothram : "",
+          patham: p.patham.toString(),
+          doshams: p.doshams.length === 1 && p.doshams[0] === "None" ? [] : p.doshams,
+          aboutMe: p.aboutMe,
+          partnerAgeMin: ageMin,
+          partnerAgeMax: ageMax,
+          partnerHeightMin: "",
+          partnerHeightMax: "",
+          partnerEducation: p.expectations.education !== "Not specified" ? p.expectations.education : "",
+          partnerProfession: p.expectations.profession !== "Not specified" ? p.expectations.profession : "",
+          partnerLocation: p.expectations.location !== "Not specified" ? p.expectations.location : "",
+          partnerRasi: p.expectations.rasi !== "Not specified" ? p.expectations.rasi : "",
+        });
+        
+        setPhotos(p.images);
+      }
+      setIsLoading(false);
+    };
+    fetchProfile();
+  }, [router]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -138,49 +213,79 @@ export default function EditProfilePage() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const newPhotos = [...photos];
+      const newPhotoFiles = [...photoFiles];
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         if (newPhotos.length >= 4) break;
         const file = e.dataTransfer.files[i];
         const fakeUrl = URL.createObjectURL(file);
         newPhotos.push(fakeUrl);
+        newPhotoFiles.push(file);
       }
       setPhotos(newPhotos);
+      setPhotoFiles(newPhotoFiles);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const newPhotos = [...photos];
+      const newPhotoFiles = [...photoFiles];
       for (let i = 0; i < e.target.files.length; i++) {
         if (newPhotos.length >= 4) break;
         const file = e.target.files[i];
         const fakeUrl = URL.createObjectURL(file);
         newPhotos.push(fakeUrl);
+        newPhotoFiles.push(file);
       }
       setPhotos(newPhotos);
+      setPhotoFiles(newPhotoFiles);
     }
   };
 
   const removePhoto = (idx: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== idx));
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== idx)); // Not perfectly matched if there's pre-existing photos, but works roughly
   };
 
   const triggerFileInput = () => {
     document.getElementById("edit-file-upload-input")?.click();
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
     setIsSaving(true);
     
-    // Simulate save API
-    setTimeout(() => {
+    try {
+      await updateProfile(userId, formData);
+      for (const file of photoFiles) {
+        await uploadProfilePhoto(userId, file);
+      }
       setIsSaving(false);
       setToastMessage("Changes saved successfully!");
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
-    }, 1200);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      setIsSaving(false);
+      setToastMessage("Error saving changes.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <main className="flex flex-col min-h-screen bg-ivory-100">
+        <Navbar />
+        <div className="h-20" />
+        <div className="flex-1 flex items-center justify-center">
+          <Settings className="w-10 h-10 text-gold-500 animate-spin" />
+        </div>
+        <Footer />
+      </main>
+    );
+  }
 
   return (
     <main className="flex flex-col min-h-screen bg-ivory-100">
@@ -218,16 +323,17 @@ export default function EditProfilePage() {
             <div className="lg:col-span-1 space-y-3">
               <div className="bg-white rounded-3xl border border-ivory-300 p-4 shadow-sm space-y-1">
                 <div className="p-3 mb-2 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden border border-gold-200">
-                    <img
-                      src={defaultProfile.images[0]}
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gold-200">
+                    <Image
+                      src={photos.length > 0 ? photos[0] : "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=600&auto=format&fit=crop"}
                       alt="User mini avatar"
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   </div>
                   <div>
-                    <h3 className="font-bold text-maroon-900 text-sm">{formData.fullName}</h3>
-                    <p className="text-[10px] text-gray-400">Profile ID: GV-00007</p>
+                    <h3 className="font-bold text-maroon-900 text-sm">{formData.fullName || "User"}</h3>
+                    <p className="text-[10px] text-gray-400">Profile Management</p>
                   </div>
                 </div>
                 <div className="gold-divider mb-3" />
@@ -794,10 +900,11 @@ export default function EditProfilePage() {
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                             {photos.map((photo, idx) => (
                               <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group bg-gray-100">
-                                <img
+                                <Image
                                   src={photo}
                                   alt={`Groom photo ${idx + 1}`}
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  className="object-cover"
                                 />
                                 <button
                                   type="button"

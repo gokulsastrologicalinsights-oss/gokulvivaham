@@ -1,11 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProfileCard from "@/components/ui/ProfileCard";
-import { mockProfiles, Profile } from "@/lib/data";
+import { mockProfiles as initialProfiles, Profile } from "@/lib/data";
+import { getProfiles, getReceivedInterests, acceptInterest, declineInterest, InterestRecord } from "@/lib/api";
+import { getShortlistIds, addShortlist, removeShortlist } from "@/app/actions/shortlist";
+import { createClient } from "@/utils/supabase/client";
 import {
   Heart,
   Eye,
@@ -24,12 +30,37 @@ import {
 
 export default function UserDashboard() {
   const router = useRouter();
+  const [mockProfiles, setMockProfiles] = useState<Profile[]>(initialProfiles);
+
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUser(data.user);
+      }
+    });
+  }, [supabase]);
+
+  const queryClient = useQueryClient();
+
+  const { data: profilesData } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: () => getProfiles(1, 20)
+  });
+
+  useEffect(() => {
+    if (profilesData?.profiles && profilesData.profiles.length > 0) {
+      setMockProfiles(profilesData.profiles as any);
+    }
+  }, [profilesData]);
   
-  // Simulated logged-in user
+  // Real authenticated user augmented with UI mock stats
   const currentUser = {
-    name: "Rajesh Kumar",
-    id: 7,
-    gender: "Male",
+    name: user?.user_metadata?.full_name || "Valued Member",
+    id: user?.id || "7",
+    gender: user?.user_metadata?.gender || "Not specified",
     premium: true,
     completeness: 85,
     views: 124,
@@ -38,38 +69,60 @@ export default function UserDashboard() {
     matches: 12,
   };
 
-  // Mock pending interests
-  const initialPendingInterests = mockProfiles.filter(
-    (p) => p.gender === "Female" && [1, 3, 5].includes(p.id)
-  );
+  const [pendingInterests, setPendingInterests] = useState<InterestRecord[]>([]);
+  const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
+  const [declinedIds, setDeclinedIds] = useState<string[]>([]);
+  const [sentInterestIds, setSentInterestIds] = useState<string[]>([]);
+  const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
 
-  const [pendingInterests, setPendingInterests] = useState<Profile[]>(initialPendingInterests);
-  const [acceptedIds, setAcceptedIds] = useState<number[]>([]);
-  const [declinedIds, setDeclinedIds] = useState<number[]>([]);
-  const [sentInterestIds, setSentInterestIds] = useState<number[]>([]);
+  useEffect(() => {
+    if (user?.id) {
+      getReceivedInterests(user.id, 'pending', 1, 20).then(({ interests }) => {
+        setPendingInterests(interests);
+      });
+      getShortlistIds().then(({ ids }) => {
+        if (ids) setShortlistedIds(ids);
+      });
+    }
+  }, [user]);
 
   // Recommended matches: Female profiles that are premium / highly compatible
   const recommendations = mockProfiles.filter(
-    (p) => p.gender === "Female" && ![1, 3, 5].includes(p.id)
+    (p) => p.gender !== currentUser.gender
   );
 
-  const handleAcceptInterest = (id: number) => {
-    setAcceptedIds((prev) => [...prev, id]);
+  const handleAcceptInterest = async (interestId: string) => {
+    setAcceptedIds((prev) => [...prev, interestId]);
+    await acceptInterest(interestId);
     setTimeout(() => {
-      setPendingInterests((prev) => prev.filter((p) => p.id !== id));
+      setPendingInterests((prev) => prev.filter((p) => p.id !== interestId));
     }, 1500);
   };
 
-  const handleDeclineInterest = (id: number) => {
-    setDeclinedIds((prev) => [...prev, id]);
+  const handleDeclineInterest = async (interestId: string) => {
+    setDeclinedIds((prev) => [...prev, interestId]);
+    await declineInterest(interestId);
     setTimeout(() => {
-      setPendingInterests((prev) => prev.filter((p) => p.id !== id));
+      setPendingInterests((prev) => prev.filter((p) => p.id !== interestId));
     }, 1500);
   };
 
-  const handleSendInterest = (id: number) => {
+  const handleSendInterest = (id: string) => {
     if (sentInterestIds.includes(id)) return;
     setSentInterestIds((prev) => [...prev, id]);
+  };
+
+  const handleToggleShortlist = async (id: string) => {
+    const isShortlisted = shortlistedIds.includes(id);
+    setShortlistedIds((prev) => isShortlisted ? prev.filter(i => i !== id) : [...prev, id]);
+
+    if (isShortlisted) {
+      const { error } = await removeShortlist(id);
+      if (error) setShortlistedIds((prev) => [...prev, id]); // revert
+    } else {
+      const { error } = await addShortlist(id);
+      if (error) setShortlistedIds((prev) => prev.filter(i => i !== id)); // revert
+    }
   };
 
   return (
@@ -102,10 +155,11 @@ export default function UserDashboard() {
                 {/* Luxury Gilded Profile Picture Frame */}
                 <div className="relative flex-shrink-0">
                   <div className="w-22 h-22 rounded-full border-2 border-gold-400 bg-white/10 overflow-hidden flex items-center justify-center p-1 shadow-inner">
-                    <img
+                    <Image
                       src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=200&auto=format&fit=crop"
                       alt="User profile"
-                      className="w-full h-full object-cover rounded-full"
+                      fill
+                      className="object-cover rounded-full"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=8b1a1a&color=faf6f0&size=100`;
                       }}
@@ -249,13 +303,14 @@ export default function UserDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4 relative z-10">
-                    {pendingInterests.map((profile) => {
-                      const isAccepted = acceptedIds.includes(profile.id);
-                      const isDeclined = declinedIds.includes(profile.id);
+                    {pendingInterests.map((interest) => {
+                      const profile = interest.profile;
+                      const isAccepted = acceptedIds.includes(interest.id);
+                      const isDeclined = declinedIds.includes(interest.id);
 
                       return (
                         <div
-                          key={profile.id}
+                          key={interest.id}
                           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border border-gold-300/10 hover:border-gold-300/30 transition-all duration-300 bg-gradient-to-r from-ivory-50/30 to-ivory-100/10 hover:from-gold-50/10 hover:to-gold-50/20"
                         >
                           <div
@@ -263,10 +318,11 @@ export default function UserDashboard() {
                             onClick={() => router.push(`/profile/${profile.id}`)}
                           >
                             <div className="relative w-16 h-16 rounded-full overflow-hidden border border-gold-300/80 bg-white p-0.5 shadow-md">
-                              <img
+                              <Image
                                 src={profile.images[0]}
                                 alt={profile.name}
-                                className="w-full h-full object-cover rounded-full"
+                                fill
+                                className="object-cover rounded-full"
                               />
                             </div>
                             <div>
@@ -300,13 +356,13 @@ export default function UserDashboard() {
                             ) : (
                               <>
                                 <button
-                                  onClick={() => handleDeclineInterest(profile.id)}
+                                  onClick={() => handleDeclineInterest(interest.id)}
                                   className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-semibold text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-all cursor-pointer"
                                 >
                                   Decline
                                 </button>
                                 <button
-                                  onClick={() => handleAcceptInterest(profile.id)}
+                                  onClick={() => handleAcceptInterest(interest.id)}
                                   className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-extrabold text-white bg-gradient-to-r from-maroon-900 via-maroon-800 to-maroon-900 hover:from-maroon-800 hover:to-maroon-700 rounded-xl transition-all shadow-md border border-gold-400/20 cursor-pointer"
                                 >
                                   Accept Call
@@ -352,8 +408,10 @@ export default function UserDashboard() {
                       image={profile.images[0]}
                       verified={profile.verified}
                       premium={profile.premium}
+                      isShortlisted={shortlistedIds.includes(profile.id)}
                       onViewProfile={() => router.push(`/profile/${profile.id}`)}
                       onSendInterest={() => handleSendInterest(profile.id)}
+                      onToggleShortlist={() => handleToggleShortlist(profile.id)}
                     />
                   ))}
                 </div>

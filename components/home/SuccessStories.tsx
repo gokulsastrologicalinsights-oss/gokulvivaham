@@ -1,11 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, Quote, ChevronLeft, ChevronRight, Heart } from "lucide-react";
-import { successStories } from "@/lib/data";
+import { successStories as initialStories } from "@/lib/data";
+import { getSuccessStories } from "@/lib/api";
 
 export default function SuccessStories() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [successStories, setSuccessStories] = useState(initialStories);
+
+  useEffect(() => {
+    getSuccessStories().then(data => {
+      if (data && data.length > 0) setSuccessStories(data as any);
+    });
+  }, []);
 
   const goTo = (idx: number) => {
     setActiveIndex(

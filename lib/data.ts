@@ -1,7 +1,7 @@
 // Placeholder data for Gokul Vivaham frontend UI
 
 export interface Profile {
-  id: number;
+  id: string;
   name: string;
   gender: "Male" | "Female";
   age: number;
@@ -50,7 +50,7 @@ export interface Profile {
 
 export const mockProfiles: Profile[] = [
   {
-    id: 1,
+    id: "1",
     name: "Priya Lakshmi",
     gender: "Female",
     age: 26,
@@ -101,7 +101,7 @@ export const mockProfiles: Profile[] = [
     premium: true,
   },
   {
-    id: 2,
+    id: "2",
     name: "Kavitha Sundaram",
     gender: "Female",
     age: 24,
@@ -151,7 +151,7 @@ export const mockProfiles: Profile[] = [
     premium: false,
   },
   {
-    id: 3,
+    id: "3",
     name: "Meena Krishnan",
     gender: "Female",
     age: 27,
@@ -201,7 +201,7 @@ export const mockProfiles: Profile[] = [
     premium: true,
   },
   {
-    id: 4,
+    id: "4",
     name: "Anitha Rajan",
     gender: "Female",
     age: 25,
@@ -250,7 +250,7 @@ export const mockProfiles: Profile[] = [
     premium: false,
   },
   {
-    id: 5,
+    id: "5",
     name: "Divya Murugan",
     gender: "Female",
     age: 28,
@@ -300,7 +300,7 @@ export const mockProfiles: Profile[] = [
     premium: true,
   },
   {
-    id: 6,
+    id: "6",
     name: "Suganya Palanisamy",
     gender: "Female",
     age: 23,
@@ -349,7 +349,7 @@ export const mockProfiles: Profile[] = [
     premium: false,
   },
   {
-    id: 7,
+    id: "7",
     name: "Rajesh Kumar",
     gender: "Male",
     age: 28,
@@ -399,7 +399,7 @@ export const mockProfiles: Profile[] = [
     premium: true,
   },
   {
-    id: 8,
+    id: "8",
     name: "Karthik Venkat",
     gender: "Male",
     age: 29,
@@ -449,7 +449,7 @@ export const mockProfiles: Profile[] = [
     premium: true,
   },
   {
-    id: 9,
+    id: "9",
     name: "Suresh Raman",
     gender: "Male",
     age: 31,
@@ -498,7 +498,7 @@ export const mockProfiles: Profile[] = [
     premium: false,
   },
   {
-    id: 10,
+    id: "10",
     name: "Arun Prasath",
     gender: "Male",
     age: 27,
@@ -547,7 +547,7 @@ export const mockProfiles: Profile[] = [
     premium: false,
   },
   {
-    id: 11,
+    id: "11",
     name: "Vignesh Balaji",
     gender: "Male",
     age: 26,
@@ -596,7 +596,7 @@ export const mockProfiles: Profile[] = [
     premium: true,
   },
   {
-    id: 12,
+    id: "12",
     name: "Deepak Chandran",
     gender: "Male",
     age: 30,
@@ -816,7 +816,9 @@ export const navLinks = [
   { name: "Home", href: "/" },
   { name: "Search", href: "/search" },
   { name: "Dashboard", href: "/dashboard" },
-  { name: "Membership", href: "/membership" },
+  { name: "Messages", href: "/messages" },
+  { name: "Shortlists", href: "/shortlists" },
+  { name: "Subscription", href: "/subscription" },
   { name: "Success Stories", href: "/success-stories" },
 ];
 
@@ -824,7 +826,7 @@ export const footerLinks = {
   quickLinks: [
     { name: "Dashboard", href: "/dashboard" },
     { name: "Browse Profiles", href: "/search" },
-    { name: "Premium Membership", href: "/membership" },
+    { name: "Premium Membership", href: "/subscription" },
     { name: "Success Stories", href: "/success-stories" },
     { name: "Help & Support", href: "/support" },
   ],

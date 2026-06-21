@@ -30,7 +30,7 @@ export default function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    setIsVisible(true);
+    setTimeout(() => setIsVisible(true), 0);
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
     }, 6000);

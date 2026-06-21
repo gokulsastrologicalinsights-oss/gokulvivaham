@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
 import {
   Heart,
   User,
@@ -9,6 +10,7 @@ import {
   Briefcase,
   MapPin,
   Phone,
+  Mail,
   Lock,
   Eye,
   EyeOff,
@@ -34,6 +36,7 @@ interface FormData {
   profession: string;
   // Contact
   location: string;
+  email: string;
   phone: string;
   password: string;
   confirmPassword: string;
@@ -50,6 +53,7 @@ const INITIAL_DATA: FormData = {
   education: "",
   profession: "",
   location: "",
+  email: "",
   phone: "",
   password: "",
   confirmPassword: "",
@@ -158,6 +162,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
   const update = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -170,9 +177,49 @@ export default function RegisterPage() {
     if (currentStep > 1) setCurrentStep((s) => s - 1);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    if (!formData.email) {
+      setError("Email is required for registration");
+      return;
+    }
+    
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            gender: formData.gender,
+            date_of_birth: formData.dateOfBirth,
+            religion: formData.religion,
+            caste: formData.caste,
+            rasi: formData.rasi,
+            nakshatra: formData.nakshatra,
+            education: formData.education,
+            profession: formData.profession,
+            location: formData.location,
+            phone: formData.phone,
+          }
+        }
+      });
+      
+      if (signUpError) throw signUpError;
+      
+      setIsSubmitted(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to register. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
@@ -492,6 +539,28 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-5">
+                  {/* Email */}
+                  <div>
+                    <label
+                      htmlFor="reg-email"
+                      className="block text-sm font-semibold text-gray-700 mb-2"
+                    >
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        id="reg-email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => update("email", e.target.value)}
+                        placeholder="your@email.com"
+                        autoComplete="email"
+                        className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-maroon-400 focus:ring-2 focus:ring-maroon-100 transition-all duration-200 text-sm"
+                      />
+                    </div>
+                  </div>
+
                   {/* Phone */}
                   <div>
                     <label
@@ -627,6 +696,13 @@ export default function RegisterPage() {
               </div>
             )}
 
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm text-center">
+                {error}
+              </div>
+            )}
+
             {/* ── Navigation ── */}
             <div className="flex items-center gap-3 mt-8 pt-6 border-t border-gray-100">
               {currentStep > 1 && (
@@ -657,10 +733,11 @@ export default function RegisterPage() {
                 <button
                   id="reg-submit-btn"
                   type="submit"
-                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-gold-600 to-gold-500 hover:from-gold-500 hover:to-gold-400 text-white font-bold rounded-2xl shadow-lg shadow-gold-500/20 hover:shadow-gold-500/30 transition-all duration-300 hover:scale-[1.02] text-sm cursor-pointer"
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-gold-600 to-gold-500 hover:from-gold-500 hover:to-gold-400 text-white font-bold rounded-2xl shadow-lg shadow-gold-500/20 hover:shadow-gold-500/30 transition-all duration-300 hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed text-sm cursor-pointer"
                 >
-                  Create My Profile 🎉
-                  <Heart className="w-4 h-4 fill-current" />
+                  {isLoading ? "Creating Profile..." : "Create My Profile 🎉"}
+                  {!isLoading && <Heart className="w-4 h-4 fill-current" />}
                 </button>
               )}
             </div>

@@ -1,20 +1,43 @@
 "use client";
+import Link from "next/link";
 
 import { useState, useEffect, useRef } from "react";
-import { Menu, X, Heart, ChevronDown, Search } from "lucide-react";
+import { Menu, X, Heart, ChevronDown, Search, User } from "lucide-react";
 import { navLinks } from "@/lib/data";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeLink, setActiveLink] = useState("/");
+  const [user, setUser] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -44,7 +67,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-18 py-3">
             {/* Logo */}
-            <a
+            <Link
               href="/"
               className="flex items-center gap-2.5 group flex-shrink-0"
               aria-label="Gokul Vivaham - Home"
@@ -70,12 +93,12 @@ export default function Navbar() {
                   கோகுல் விவாஹம்
                 </div>
               </div>
-            </a>
+            </Link>
 
             {/* Desktop Nav Links */}
             <div className="hidden lg:flex items-center gap-1">
               {navLinks.map((link) => (
-                <a
+                <Link
                   key={link.name}
                   href={link.href}
                   onClick={() => setActiveLink(link.href)}
@@ -93,44 +116,79 @@ export default function Navbar() {
                   {activeLink === link.href && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gold-500" />
                   )}
-                </a>
+                </Link>
               ))}
             </div>
 
             {/* Desktop CTA Buttons */}
             <div className="hidden lg:flex items-center gap-3">
-              <a
-                href="/login"
-                className={`px-5 py-2 text-sm font-semibold rounded-xl border-2 transition-all duration-300 ${
-                  scrolled
-                    ? "text-maroon-800 border-maroon-700 hover:bg-maroon-50"
-                    : "text-white border-white/40 hover:border-white hover:bg-white/10"
-                }`}
-              >
-                Login
-              </a>
-              <a
-                href="/register"
-                className="px-5 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-gold-600 to-gold-500 text-white hover:from-gold-500 hover:to-gold-400 shadow-lg hover:shadow-gold-500/30 transition-all duration-300 hover:scale-[1.03]"
-              >
-                Register Free
-              </a>
+              {user ? (
+                <>
+                  <NotificationBell userId={user.id} />
+                  <Link
+                    href="/profile"
+                    className={`flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl transition-all duration-300 ${
+                      scrolled
+                        ? "text-maroon-800 hover:bg-maroon-50"
+                        : "text-white hover:bg-white/10"
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    Profile
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      router.push("/");
+                    }}
+                    className={`px-5 py-2 text-sm font-semibold rounded-xl border-2 transition-all duration-300 ${
+                      scrolled
+                        ? "text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                        : "text-white border-white/40 hover:border-white hover:bg-white/10"
+                    }`}
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className={`px-5 py-2 text-sm font-semibold rounded-xl border-2 transition-all duration-300 ${
+                      scrolled
+                        ? "text-maroon-800 border-maroon-700 hover:bg-maroon-50"
+                        : "text-white border-white/40 hover:border-white hover:bg-white/10"
+                    }`}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="px-5 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-gold-600 to-gold-500 text-white hover:from-gold-500 hover:to-gold-400 shadow-lg hover:shadow-gold-500/30 transition-all duration-300 hover:scale-[1.03]"
+                  >
+                    Register Free
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile Hamburger */}
-            <button
-              id="mobile-menu-toggle"
-              onClick={() => setIsOpen(!isOpen)}
-              className={`lg:hidden p-2 rounded-xl transition-all duration-200 ${
-                scrolled
-                  ? "text-maroon-800 hover:bg-maroon-50"
-                  : "text-white hover:bg-white/10"
-              }`}
-              aria-label={isOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isOpen}
-            >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            <div className="lg:hidden flex items-center gap-2">
+              {user && <NotificationBell userId={user.id} />}
+              <button
+                id="mobile-menu-toggle"
+                onClick={() => setIsOpen(!isOpen)}
+                className={`p-2 rounded-xl transition-all duration-200 ${
+                  scrolled
+                    ? "text-maroon-800 hover:bg-maroon-50"
+                    : "text-white hover:bg-white/10"
+                }`}
+                aria-label={isOpen ? "Close menu" : "Open menu"}
+                aria-expanded={isOpen}
+              >
+                {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -188,7 +246,7 @@ export default function Navbar() {
             </p>
             <nav className="space-y-1">
               {navLinks.map((link, idx) => (
-                <a
+                <Link
                   key={link.name}
                   href={link.href}
                   onClick={() => { setActiveLink(link.href); setIsOpen(false); }}
@@ -200,7 +258,7 @@ export default function Navbar() {
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   {link.name}
-                </a>
+                </Link>
               ))}
             </nav>
 
@@ -222,20 +280,44 @@ export default function Navbar() {
 
           {/* Drawer Footer CTA */}
           <div className="flex-shrink-0 p-4 border-t border-gray-100 space-y-3">
-            <a
-              href="/register"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-center w-full py-3 text-sm font-bold text-white bg-gradient-to-r from-gold-600 to-gold-500 rounded-xl shadow-lg hover:shadow-gold-500/30 transition-all duration-300"
-            >
-              Register Free — Start Today
-            </a>
-            <a
-              href="/login"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center justify-center w-full py-3 text-sm font-semibold text-maroon-800 border-2 border-maroon-200 rounded-xl hover:bg-maroon-50 transition-all duration-200"
-            >
-              Already a Member? Login
-            </a>
+            {user ? (
+              <>
+                <Link
+                  href="/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-center w-full py-3 text-sm font-bold text-white bg-gradient-to-r from-maroon-900 to-maroon-800 rounded-xl shadow-lg hover:shadow-maroon-900/30 transition-all duration-300"
+                >
+                  My Profile
+                </Link>
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    setIsOpen(false);
+                    router.push("/");
+                  }}
+                  className="flex items-center justify-center w-full py-3 text-sm font-semibold text-gray-600 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-center w-full py-3 text-sm font-bold text-white bg-gradient-to-r from-gold-600 to-gold-500 rounded-xl shadow-lg hover:shadow-gold-500/30 transition-all duration-300"
+                >
+                  Register Free — Start Today
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-center w-full py-3 text-sm font-semibold text-maroon-800 border-2 border-maroon-200 rounded-xl hover:bg-maroon-50 transition-all duration-200"
+                >
+                  Already a Member? Login
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

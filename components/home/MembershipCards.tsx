@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
-import { Check, X, Sparkles, Crown, Gem } from "lucide-react";
-import { membershipPlans } from "@/lib/data";
+import { useState, useEffect } from "react";
+import { Check, X, Shield, Sparkles, Crown } from "lucide-react";
+import { membershipPlans as initialPlans } from "@/lib/data";
+import { getMembershipPlans } from "@/lib/api";
 
 const planIcons = {
   silver: "🥈",
@@ -33,6 +35,14 @@ const planButtonStyle = {
 
 export default function MembershipCards() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [membershipPlans, setMembershipPlans] = useState(initialPlans);
+
+  useEffect(() => {
+    getMembershipPlans().then(data => {
+      if (data && data.length > 0) setMembershipPlans(data as any);
+    });
+  }, []);
 
   return (
     <section

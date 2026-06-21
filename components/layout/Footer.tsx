@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Heart,
   Mail,
@@ -28,7 +29,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="lg:col-span-1">
             {/* Logo */}
-            <a href="/" className="flex items-center gap-2.5 group mb-6">
+            <Link href="/" className="flex items-center gap-2.5 group mb-6">
               <div className="w-10 h-10 rounded-full bg-gold-500/20 border border-gold-400/30 flex items-center justify-center group-hover:bg-gold-500/30 transition-colors">
                 <Heart className="w-5 h-5 text-gold-400 fill-current" />
               </div>
@@ -43,7 +44,7 @@ export default function Footer() {
                   கோகுல் விவாஹம்
                 </div>
               </div>
-            </a>
+            </Link>
 
             <p className="text-gray-400 text-sm leading-relaxed mb-6">
               Trusted by over 5,00,000 Tamil families worldwide. We believe

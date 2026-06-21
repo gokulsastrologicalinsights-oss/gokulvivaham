@@ -1,6 +1,7 @@
 "use client";
 
-import { ShieldCheck, Star, MapPin, GraduationCap, Briefcase, Award } from "lucide-react";
+import Image from "next/image";
+import { ShieldCheck, Star, MapPin, GraduationCap, Briefcase, Award, Heart } from "lucide-react";
 
 interface ProfileCardProps {
   name: string;
@@ -13,8 +14,10 @@ interface ProfileCardProps {
   image: string;
   verified?: boolean;
   premium?: boolean;
+  isShortlisted?: boolean;
   onViewProfile?: () => void;
   onSendInterest?: () => void;
+  onToggleShortlist?: () => void;
 }
 
 export default function ProfileCard({
@@ -28,8 +31,10 @@ export default function ProfileCard({
   image,
   verified = false,
   premium = false,
+  isShortlisted = false,
   onViewProfile,
   onSendInterest,
+  onToggleShortlist,
 }: ProfileCardProps) {
   return (
     <div className="group relative bg-white rounded-3xl overflow-hidden border border-gold-300/20 hover:border-gold-500/60 shadow-lg hover:shadow-2xl hover:shadow-maroon-900/15 -translate-y-0 hover:-translate-y-2.5 transition-all duration-500 bg-gradient-to-b from-white to-ivory-50/50">
@@ -48,24 +53,32 @@ export default function ProfileCard({
         </div>
       )}
 
+      {/* Shortlist Button */}
+      {onToggleShortlist && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleShortlist(); }}
+          className="absolute top-4 right-4 z-20 p-2 bg-white/90 backdrop-blur-sm hover:bg-white rounded-full shadow-md transition-all duration-300 cursor-pointer border border-ivory-300 hover:border-maroon-300 hover:scale-110"
+        >
+          <Heart className={`w-5 h-5 transition-colors ${isShortlisted ? "fill-maroon-600 text-maroon-600" : "text-gray-400 hover:text-maroon-600"}`} />
+        </button>
+      )}
+
       {/* Verified Badge */}
       {verified && (
-        <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-sm text-maroon-900 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-md border border-maroon-100/50">
+        <div className={`absolute top-4 ${onToggleShortlist ? 'right-16' : 'right-4'} z-10 bg-white/95 backdrop-blur-sm text-maroon-900 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-md border border-maroon-100/50`}>
           <ShieldCheck className="w-3.5 h-3.5 text-maroon-700 fill-maroon-50" />
-          Verified Match
+          Verified
         </div>
       )}
 
       {/* Image Gallery Mock Wrapper */}
       <div className="relative h-60 overflow-hidden bg-gradient-to-br from-ivory-100 to-ivory-300 border-b border-ivory-200">
-        <img
-          src={image}
+        <Image
+          src={image || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b1a1a&color=faf6f0&size=300&font-size=0.4`}
           alt={`${name}'s photo`}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src =
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b1a1a&color=faf6f0&size=300&font-size=0.4`;
-          }}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
         />
         
         {/* Luxury Gold Shimmer overlay on hover */}
@@ -87,7 +100,7 @@ export default function ProfileCard({
               {name}
             </h3>
             <p className="text-maroon-600 text-xs font-semibold tracking-wide uppercase mt-0.5">
-              {age} Yrs • Groom
+              {age} Yrs
             </p>
           </div>
           <div className="text-right">
@@ -151,3 +164,4 @@ export default function ProfileCard({
     </div>
   );
 }
+
