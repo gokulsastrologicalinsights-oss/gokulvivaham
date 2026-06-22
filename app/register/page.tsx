@@ -250,46 +250,56 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ivory-100 py-8 px-4 sm:px-6">
-      {/* Top logo bar */}
-      <div className="flex items-center justify-center gap-2.5 mb-10">
-        <a href="/" className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-maroon-900 to-maroon-700 flex items-center justify-center shadow-lg">
-            <Heart className="w-5 h-5 text-gold-400 fill-current" />
-          </div>
-          <div>
-            <div className="font-bold text-xl text-maroon-900">
-              Gokul <span className="text-gold-500">Vivaham</span>
-            </div>
-            <div
-              className="text-[9px] text-gray-400 tracking-widest"
-              style={{ fontFamily: "var(--font-tamil)" }}
-            >
-              கோகுல் விவாஹம்
-            </div>
-          </div>
-        </a>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-black py-12">
+      {/* Background Image with Overlay */}
+      <div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ 
+          backgroundImage: 'url("https://images.unsplash.com/photo-1583939000140-5e206ab6d418?q=80&w=2070&auto=format&fit=crop")',
+        }}
+      />
+      <div className="fixed inset-0 bg-gradient-to-t from-black via-black/60 to-black/40 backdrop-blur-[2px]" />
 
-      <div className="max-w-2xl mx-auto">
-        {/* Page title */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-maroon-900 mb-2">
-            Create Your{" "}
-            <span className="bg-gradient-to-r from-maroon-800 to-gold-600 bg-clip-text text-transparent">
-              Free Profile
-            </span>
-          </h1>
-          <p className="text-gray-500 text-sm">
-            Already registered?{" "}
-            <a href="/login" className="text-gold-600 font-semibold hover:underline">
-              Sign In
-            </a>
-          </p>
+      <div className="relative z-10 w-full max-w-3xl px-4 flex flex-col items-center mx-auto">
+        {/* Top logo bar */}
+        <div className="flex flex-col items-center justify-center mb-8 gap-2">
+          <a href="/" className="flex flex-col items-center justify-center gap-2 group">
+            <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg group-hover:border-white/40 transition-colors">
+              <Heart className="w-6 h-6 text-[#8b1a1a] fill-[#8b1a1a]" />
+            </div>
+            <div className="text-center">
+              <div className="font-extrabold text-3xl text-white tracking-tight drop-shadow-md">
+                Gokul Vivaham
+              </div>
+              <div
+                className="text-[10px] text-[#c9a84c] tracking-[0.2em] font-semibold uppercase mt-1 drop-shadow-md"
+                style={{ fontFamily: "var(--font-tamil)" }}
+              >
+                கோகுல் விவாஹம்
+              </div>
+            </div>
+          </a>
         </div>
 
+        <div className="w-full">
+          {/* Page title */}
+          <div className="text-center mb-8 glass-card rounded-[2rem] p-6">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-maroon-900 mb-2">
+              Create Your{" "}
+              <span className="bg-gradient-to-r from-maroon-800 to-gold-600 bg-clip-text text-transparent">
+                Free Profile
+              </span>
+            </h1>
+            <p className="text-gray-600 text-sm font-medium">
+              Already registered?{" "}
+              <a href="/login" className="text-maroon-700 font-bold hover:underline">
+                Sign In
+              </a>
+            </p>
+          </div>
+
         {/* Step progress */}
-        <div className="bg-white rounded-3xl border border-ivory-300 shadow-sm p-5 mb-6">
+        <div className="glass-card rounded-[2rem] border border-ivory-300 shadow-sm p-5 mb-6">
           <div className="flex items-center justify-between relative">
             {/* Progress line */}
             <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-100 mx-8">
@@ -346,7 +356,9 @@ export default function RegisterPage() {
         </div>
 
         {/* Form card */}
-        <div className="bg-white rounded-3xl border border-ivory-300 shadow-xl shadow-maroon-100/20 p-8 sm:p-10">
+        <div className="glass-card rounded-[2rem] border border-ivory-300 shadow-xl shadow-maroon-100/20 p-8 sm:p-10 relative overflow-hidden">
+          {/* Card Top Border Accent */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c9a84c] to-transparent" />
           <form onSubmit={handleSubmit}>
             {/* ── Step 1: Personal Info ── */}
             {currentStep === 1 && (
