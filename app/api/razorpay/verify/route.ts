@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient } from '@/utils/supabase/server';
+import { getPlanByName } from '@/lib/plans';
 
 export async function POST(req: Request) {
   try {
@@ -31,47 +32,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    // 1. Update payment status
-    const { data: payment, error: updateError } = await supabase
+    // 1. Get payment details first to determine duration
+    const { data: paymentInfo, error: fetchError } = await supabase
       .from('payments')
-      .update({
-        razorpay_payment_id,
-        razorpay_signature,
-        status: 'captured',
-      })
+      .select('plan_name')
       .eq('razorpay_order_id', razorpay_order_id)
-      .select()
       .single();
 
-    if (updateError || !payment) {
-      console.error('Error updating payment:', updateError);
-      return NextResponse.json({ error: 'Failed to update payment record' }, { status: 500 });
+    if (fetchError || !paymentInfo) {
+      return NextResponse.json({ error: 'Payment order not found' }, { status: 404 });
     }
 
-    // 2. Make user premium in profiles
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ is_premium: true })
-      .eq('id', user.id);
+    const plan = getPlanByName(paymentInfo.plan_name);
+    const durationDays = plan?.durationDays || 30;
 
-    if (profileError) {
-      console.error('Error updating profile to premium:', profileError);
-    }
+    // 2. Call secure RPC to capture payment, update profile, and add subscription
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('capture_payment', {
+      p_order_id: razorpay_order_id,
+      p_payment_id: razorpay_payment_id,
+      p_signature: razorpay_signature,
+      p_duration_days: durationDays
+    });
 
-    // 3. Create or update subscription
-    const { error: subError } = await supabase
-      .from('subscriptions')
-      .insert({
-        profile_id: user.id,
-        plan_name: payment.plan_name,
-        start_date: new Date().toISOString(),
-        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days for now
-        status: 'active',
-        payment_reference: razorpay_payment_id,
-      });
-
-    if (subError) {
-      console.error('Error inserting subscription:', subError);
+    if (rpcError) {
+      console.error('Error in capture_payment RPC:', rpcError);
+      return NextResponse.json({ error: 'Failed to capture payment' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });

@@ -1,10 +1,8 @@
 "use server"
 
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { Database } from '@/types/database.types'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { createClient } from '@/utils/supabase/server'
 import {
   UpdateUserStatusSchema,
   ResolveReportSchema,
@@ -13,36 +11,9 @@ import {
   DeleteSuccessStorySchema
 } from '@/lib/validations'
 
-async function getAdminClient() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-      },
-    }
-  )
-  return supabase
-}
-
 // Ensure the caller is an authenticated admin
 async function requireAdmin() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-      },
-    }
-  )
+  const supabase = await createClient()
 
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
@@ -54,12 +25,11 @@ async function requireAdmin() {
   // We can also query `is_admin` via RPC:
   const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin')
   
-  if (adminError || !isAdmin) {
-    // If RPC fails or returns false, fallback to checking app_metadata just in case.
-    if (user.app_metadata?.role !== 'admin') {
-       throw new Error("Forbidden: Admin access required")
-    }
-  }
+  if (adminError)
+    throw new Error("Admin verification failed")
+
+  if (!isAdmin)
+    throw new Error("Unauthorized")
 
   return user
 }
@@ -72,7 +42,7 @@ export async function updateUserStatus(userId: string, status: 'active' | 'suspe
 
   const parsed = UpdateUserStatusSchema.parse({ userId, status })
 
-  const supabase = await getAdminClient()
+  const supabase = await createClient()
   const { error } = await supabase.from('profiles').update({ status: parsed.status }).eq('id', parsed.userId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/users')
@@ -86,7 +56,7 @@ export async function resolveReport(reportId: string, resolution: 'resolved' | '
 
   const parsed = ResolveReportSchema.parse({ reportId, resolution, notes })
 
-  const supabase = await getAdminClient()
+  const supabase = await createClient()
   const { error } = await supabase
     .from('reports')
     .update({ 
@@ -107,7 +77,7 @@ export async function moderateGalleryImage(imageId: string, status: 'approved' |
 
   const parsed = ModerateGalleryImageSchema.parse({ imageId, status })
 
-  const supabase = await getAdminClient()
+  const supabase = await createClient()
   const { error } = await supabase.from('galleries').update({ status: parsed.status }).eq('id', parsed.imageId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/gallery')
@@ -121,7 +91,7 @@ export async function moderateVerification(verificationId: string, profileId: st
 
   const parsed = ModerateVerificationSchema.parse({ verificationId, profileId, status, notes })
 
-  const supabase = await getAdminClient()
+  const supabase = await createClient()
   
   const { error } = await supabase
     .from('verification_requests')
@@ -150,7 +120,7 @@ export async function deleteSuccessStory(storyId: string) {
 
   const parsed = DeleteSuccessStorySchema.parse({ storyId })
 
-  const supabase = await getAdminClient()
+  const supabase = await createClient()
   const { error } = await supabase.from('success_stories').delete().eq('id', parsed.storyId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/success-stories')

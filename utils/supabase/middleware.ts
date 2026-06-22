@@ -41,7 +41,7 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/register')
   
   // Protected routes
-  const protectedRoutes = ['/profile', '/dashboard']
+  const protectedRoutes = ['/profile', '/dashboard', '/messages', '/subscription']
   const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
 
@@ -53,14 +53,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isAdminRoute && user) {
-    // check if user has admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    // check if user has admin role using RPC
+    const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin')
 
-    if (profile?.role !== 'admin') {
+    if (adminError || !isAdmin) {
       const url = request.nextUrl.clone()
       url.pathname = '/' // Redirect non-admins to home
       return NextResponse.redirect(url)

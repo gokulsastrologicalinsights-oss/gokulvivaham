@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { createClient } from '@/utils/supabase/server';
+import { getPlanByName } from '@/lib/plans';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -16,11 +17,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { planName, amount } = await req.json();
+    const { planName } = await req.json();
 
-    if (!planName || !amount) {
-      return NextResponse.json({ error: 'Missing planName or amount' }, { status: 400 });
+    if (!planName) {
+      return NextResponse.json({ error: 'Missing planName' }, { status: 400 });
     }
+
+    const plan = getPlanByName(planName);
+    if (!plan) {
+      return NextResponse.json({ error: 'Invalid plan name' }, { status: 400 });
+    }
+
+    const amount = plan.price;
 
     // Amount should be in paise
     const options = {
